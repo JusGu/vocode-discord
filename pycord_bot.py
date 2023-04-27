@@ -1,10 +1,40 @@
 import discord
 from dotenv import load_dotenv
 import os
+from pydub import AudioSegment
+from elevenlabs import generate
+import io
 load_dotenv()
 
 TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 bot = discord.Bot()
+def convert_to_pcm(audio_bytes):
+    audio = AudioSegment.from_file(io.BytesIO(audio_bytes), format="mp3")
+    pcm_audio = audio.export(format="wav", codec="pcm_s16le", parameters=["-ac", "2", "-ar", "48000"])
+    return pcm_audio
+
+@bot.command()
+async def join(ctx):
+    if not ctx.author.voice:
+        await ctx.send("You are not connected to a voice channel!")
+        return
+    channel = ctx.author.voice.channel
+
+    voice_client = await channel.connect()
+
+    text = "Hello, I am your voice bot!"
+    audio = generate(text)
+    pcm_audio = convert_to_pcm(audio)
+
+    buffer = io.BytesIO(pcm_audio.read())
+    buffer.seek(0)
+
+    voice_client.play(discord.PCMAudio(buffer))
+
+@bot.event
+async def on_ready():
+    print(f"{bot.user.name} is connected to Discord!")
+
 connections = {}
 
 async def once_done(sink: discord.sinks, channel: discord.TextChannel, *args):  # Our voice client already passes these in.
